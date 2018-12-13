@@ -12,11 +12,13 @@ public class KdTree {
 
     class Node {
         Point2D point;
+        RectHV rect;
         Node left;
         Node right;
 
-        Node(Point2D point) {
+        Node(Point2D point, RectHV rect) {
             this.point = point;
+            this.rect = rect;
         }
     }
 
@@ -43,11 +45,15 @@ public class KdTree {
 
         if (isVertical) {
             StdDraw.setPenColor(Color.RED);
-            StdDraw.line(node.point.x(), 0.0f, node.point.x(), 1.0f);
+            StdDraw.line(
+                    node.point.x(), node.rect.ymin(),
+                    node.point.x(), node.rect.ymax());
         }
         else {
             StdDraw.setPenColor(Color.BLUE);
-            StdDraw.line(0.0f, node.point.y(), 1.0f, node.point.y());
+            StdDraw.line(
+                    node.rect.xmin(), node.point.y(),
+                    node.rect.xmax(), node.point.y());
         }
 
         StdDraw.setPenColor(Color.BLACK);
@@ -57,35 +63,20 @@ public class KdTree {
         draw(node.right, !isVertical);
     }
 
-    private void range(Node node, boolean isVertical, RectHV rect, RectHV nodeRect, List<Point2D> result) {
+    private void range(Node node, boolean isVertical, RectHV rect, List<Point2D> result) {
         if (node == null) return;
+        if (!rect.intersects(node.rect)) return;
 
         if (rect.contains(node.point)) {
             result.add(node.point);
         }
 
         if (isVertical) {
-            RectHV lRect = new RectHV(nodeRect.xmin(), nodeRect.ymin(), node.point.x(), nodeRect.ymax());
-            RectHV rRect = new RectHV(node.point.x(), nodeRect.ymin(), nodeRect.xmax(), nodeRect.ymax());
-
-            if (rect.intersects(lRect)) {
-                range(node.left, !isVertical, rect, lRect, result);
-            }
-
-            if (rect.intersects(rRect)) {
-                range(node.right, !isVertical, rect, rRect, result);
-            }
+            range(node.left, !isVertical, rect, result);
+            range(node.right, !isVertical, rect, result);
         } else {
-            RectHV bRect = new RectHV(nodeRect.xmin(), nodeRect.ymin(), nodeRect.xmax(), node.point.y());
-            RectHV tRect = new RectHV(nodeRect.xmin(), node.point.y(), nodeRect.xmax(), nodeRect.ymax());
-
-            if (rect.intersects(bRect)) {
-                range(node.left, !isVertical, rect, bRect, result);
-            }
-
-            if (rect.intersects(tRect)) {
-                range(node.right, !isVertical, rect, tRect, result);
-            }
+            range(node.left, !isVertical, rect, result);
+            range(node.right, !isVertical, rect, result);
         }
     }
 
@@ -103,7 +94,7 @@ public class KdTree {
 
     public void insert(Point2D p) {
         if (root == null) {
-            root = new Node(p);
+            root = new Node(p, new RectHV(0.0, 0.0, 1.0, 1.0));
         } else {
             Node current = root;
             boolean isVertical = true;
@@ -112,7 +103,14 @@ public class KdTree {
                 int cmp = compare(p, current.point, isVertical);
                 if (cmp < 0) {
                     if (current.left == null) {
-                        current.left = new Node(p);
+                        RectHV rect;
+                        if (isVertical) {
+                            rect = new RectHV(current.rect.xmin(), current.rect.ymin(), current.point.x(), current.rect.ymax());
+                        }
+                        else {
+                            rect = new RectHV(current.rect.xmin(), current.rect.ymin(), current.rect.xmax(), current.point.y());
+                        }
+                        current.left = new Node(p, rect);
                         break;
                     }
 
@@ -120,7 +118,15 @@ public class KdTree {
                 }
                 else {
                     if (current.right == null) {
-                        current.right = new Node(p);
+                        RectHV rect;
+                        if (isVertical) {
+                            rect = new RectHV(current.point.x(), current.rect.ymin(), current.rect.xmax(), current.rect.ymax());
+                        }
+                        else {
+                            rect = new RectHV(current.rect.xmin(), current.point.y(), current.rect.xmax(), current.rect.ymax());
+                        }
+
+                        current.right = new Node(p, rect);
                         break;
                     }
 
@@ -170,7 +176,7 @@ public class KdTree {
 
         List<Point2D> result = new LinkedList<>();
 
-        range(root, true, rect, new RectHV(0.0, 0.0, 1.0, 1.0), result);
+        range(root, true, rect, result);
 
         return result;
     }

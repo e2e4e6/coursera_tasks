@@ -1,7 +1,10 @@
 import edu.princeton.cs.algs4.Point2D;
 import edu.princeton.cs.algs4.RectHV;
+import edu.princeton.cs.algs4.StdDraw;
 
-import java.util.Comparator;
+import java.awt.*;
+import java.util.LinkedList;
+import java.util.List;
 
 public class KdTree {
     private Node root = null;
@@ -11,18 +14,11 @@ public class KdTree {
         Point2D point;
         Node left;
         Node right;
-        boolean color;
-        boolean isVertical;
 
-        Node(Point2D point, boolean color, boolean isVertical) {
+        Node(Point2D point) {
             this.point = point;
-            this.color = color;
-            this.isVertical = isVertical;
         }
     }
-
-    private static final boolean RED = true;
-    private static final boolean BLACK = false;
 
     private int compare(Point2D o1, Point2D o2, boolean isVertical) {
         if (o1 == null || o2 == null) {
@@ -40,91 +36,57 @@ public class KdTree {
         return Double.compare(o1.y(), o2.y());
     }
 
-    private boolean isRed(Node node) {
+    private void draw(Node node, boolean isVertical) {
         if (node == null) {
-            return false;
+            return;
         }
 
-        return node.color == RED;
-    }
-
-    private boolean isNecessaryFlipp(Node node) {
-        if (node.left == null && node.right == null) {
-            return false;
-        }
-
-        if (node.left != null && compare(node.point, node.left.point, node.isVertical) >= 0) {
-            return true;
-        }
-
-        if (node.right != null && compare(node.point, node.right.point, node.isVertical) < 0) {
-            return true;
-        }
-
-        return false;
-    }
-
-    private void flipChild(Node node) {
-        Node temp = node.left;
-        node.left = node.right;
-        node.right = temp;
-    }
-
-    private Node rotateLeft(Node node) {
-        assert isRed(node.right);
-
-        boolean isVerticalNode = node.isVertical;
-
-        Node temp = node.right;
-        node.right = temp.left;
-        temp.left = node;
-        temp.color = node.color;
-        node.color = RED;
-
-        return temp;
-    }
-
-    private Node rotateRight(Node node) {
-        assert isRed(node.left);
-
-        Node temp = node.left;
-        node.left = temp.right;
-        temp.right = node;
-        temp.color = node.color;
-        node.color = RED;
-
-        return temp;
-    }
-
-    private void flipColors(Node node) {
-        assert !isRed(node);
-        assert isRed(node.left);
-        assert isRed(node.right);
-
-        node.color = RED;
-        node.left.color = BLACK;
-        node.right.color = BLACK;
-    }
-
-    private Node put(Node node, Point2D point, boolean isVertical) {
-        if (node == null) return new Node(point, RED, isVertical);
-
-        int cmp = compare(point, node.point, node.isVertical);
-        if (cmp < 0) {
-            node.left = put(node.left, point, !node.isVertical);
-        }
-        else if (cmp > 0) {
-            node.right = put(node.right, point, !node.isVertical);
+        if (isVertical) {
+            StdDraw.setPenColor(Color.RED);
+            StdDraw.line(node.point.x(), 0.0f, node.point.x(), 1.0f);
         }
         else {
-            node.point = point;
+            StdDraw.setPenColor(Color.BLUE);
+            StdDraw.line(0.0f, node.point.y(), 1.0f, node.point.y());
         }
 
-        if (isRed(node.right)   && !isRed(node.left))       node = rotateRight(node);
-        if (isRed(node.left)    && isRed(node.left.left))   node = rotateLeft(node);
-        if (isRed(node.left)    && isRed(node.right))       flipColors(node);
+        StdDraw.setPenColor(Color.BLACK);
+        StdDraw.point(node.point.x(), node.point.y());
 
-        return node;
+        draw(node.left, !isVertical);
+        draw(node.right, !isVertical);
+    }
+
+    private void range(Node node, boolean isVertical, RectHV rect, RectHV nodeRect, List<Point2D> result) {
+        if (node == null) return;
+
+        if (rect.contains(node.point)) {
+            result.add(node.point);
+        }
+
+        if (isVertical) {
+            RectHV lRect = new RectHV(nodeRect.xmin(), nodeRect.ymin(), node.point.x(), nodeRect.ymax());
+            RectHV rRect = new RectHV(node.point.x(), nodeRect.ymin(), nodeRect.xmax(), nodeRect.ymax());
+
+            if (rect.intersects(lRect)) {
+                range(node.left, !isVertical, rect, lRect, result);
+            }
+
+            if (rect.intersects(rRect)) {
+                range(node.right, !isVertical, rect, rRect, result);
+            }
+        } else {
+            RectHV bRect = new RectHV(nodeRect.xmin(), nodeRect.ymin(), nodeRect.xmax(), node.point.y());
+            RectHV tRect = new RectHV(nodeRect.xmin(), node.point.y(), nodeRect.xmax(), nodeRect.ymax());
+
+            if (rect.intersects(bRect)) {
+                range(node.left, !isVertical, rect, bRect, result);
+            }
+
+            if (rect.intersects(tRect)) {
+                range(node.right, !isVertical, rect, tRect, result);
+            }
+        }
     }
 
     public KdTree() {
@@ -140,7 +102,34 @@ public class KdTree {
     }
 
     public void insert(Point2D p) {
-        root = put(root, p, true);
+        if (root == null) {
+            root = new Node(p);
+        } else {
+            Node current = root;
+            boolean isVertical = true;
+
+            while (true) {
+                int cmp = compare(p, current.point, isVertical);
+                if (cmp < 0) {
+                    if (current.left == null) {
+                        current.left = new Node(p);
+                        break;
+                    }
+
+                    current = current.left;
+                }
+                else {
+                    if (current.right == null) {
+                        current.right = new Node(p);
+                        break;
+                    }
+
+                    current = current.right;
+                }
+
+                isVertical = !isVertical;
+            }
+        }
 
         size++;
     }
@@ -150,13 +139,28 @@ public class KdTree {
             throw new java.lang.IllegalArgumentException("Argument point is null.");
         }
 
+        Node current = root;
+        boolean isVertical = true;
+
+        while (current != null) {
+            int cmp = compare(p, current.point, isVertical);
+            if (cmp < 0) {
+                current = current.left;
+            }
+            else if (cmp > 0) {
+                current = current.right;
+            } else {
+                return true;
+            }
+
+            isVertical = !isVertical;
+        }
+
         return false;
     }
 
     public void draw() {
-        for (Point2D point : pointSet) {
-            StdDraw.point(point.x(), point.y());
-        }
+        draw(root, true);
     }
 
     public Iterable<Point2D> range(RectHV rect) {
@@ -164,7 +168,11 @@ public class KdTree {
             throw new java.lang.IllegalArgumentException("Argument rect is null.");
         }
 
-        return null;
+        List<Point2D> result = new LinkedList<>();
+
+        range(root, true, rect, new RectHV(0.0, 0.0, 1.0, 1.0), result);
+
+        return result;
     }
 
     public Point2D nearest(Point2D p) {
@@ -172,7 +180,34 @@ public class KdTree {
             throw new java.lang.IllegalArgumentException("Argument point is null.");
         }
 
-        return null;
+        if (root == null) {
+            throw new java.lang.IllegalArgumentException("Root is null.");
+        }
+
+        Node current = root;
+        Point2D result = root.point;
+        double minDst = Double.MAX_VALUE;
+        boolean isVertical = true;
+
+        while (current != null) {
+            double dst = current.point.distanceSquaredTo(p);
+            if (dst < minDst) {
+                minDst = dst;
+                result = current.point;
+            }
+
+            int cmp = compare(p, current.point, isVertical);
+            if (cmp < 0) {
+                current = current.left;
+            }
+            else {
+                current = current.right;
+            }
+
+            isVertical = !isVertical;
+        }
+
+        return result;
     }
 
     public static void main(String[] args) {

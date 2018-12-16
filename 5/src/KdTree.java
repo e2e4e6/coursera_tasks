@@ -2,15 +2,16 @@ import edu.princeton.cs.algs4.Point2D;
 import edu.princeton.cs.algs4.RectHV;
 import edu.princeton.cs.algs4.StdDraw;
 
-import java.awt.*;
 import java.util.LinkedList;
 import java.util.List;
 
 public class KdTree {
     private Node root = null;
+    private double minDst = Double.MAX_VALUE;
+    private Point2D nearestPoint = null;
     private int size = 0;
 
-    class Node {
+    private class Node {
         Point2D point;
         RectHV rect;
         Node left;
@@ -44,26 +45,26 @@ public class KdTree {
         }
 
         if (isVertical) {
-            StdDraw.setPenColor(Color.RED);
+            StdDraw.setPenColor(255, 0, 0);
             StdDraw.line(
                     node.point.x(), node.rect.ymin(),
                     node.point.x(), node.rect.ymax());
         }
         else {
-            StdDraw.setPenColor(Color.BLUE);
+            StdDraw.setPenColor(0, 0, 255);
             StdDraw.line(
                     node.rect.xmin(), node.point.y(),
                     node.rect.xmax(), node.point.y());
         }
 
-        StdDraw.setPenColor(Color.BLACK);
+        StdDraw.setPenColor(0, 0, 0);
         StdDraw.point(node.point.x(), node.point.y());
 
         draw(node.left, !isVertical);
         draw(node.right, !isVertical);
     }
 
-    private void range(Node node, boolean isVertical, RectHV rect, List<Point2D> result) {
+    private void range(Node node, RectHV rect, List<Point2D> result) {
         if (node == null) return;
         if (!rect.intersects(node.rect)) return;
 
@@ -71,12 +72,62 @@ public class KdTree {
             result.add(node.point);
         }
 
+        range(node.left, rect, result);
+        range(node.right, rect, result);
+    }
+
+    private RectHV makeLeftSubRect(Node node, boolean isVertical) {
+        RectHV rect = node.rect;
+        Point2D pivot = node.point;
+
         if (isVertical) {
-            range(node.left, !isVertical, rect, result);
-            range(node.right, !isVertical, rect, result);
+            return new RectHV(rect.xmin(), rect.ymin(), pivot.x(), rect.ymax());
+        }
+
+        return new RectHV(rect.xmin(), rect.ymin(), rect.xmax(), pivot.y());
+    }
+
+    private RectHV makeRightSubRect(Node node, boolean isVertical) {
+        RectHV rect = node.rect;
+        Point2D pivot = node.point;
+
+        if (isVertical) {
+            return new RectHV(pivot.x(), rect.ymin(), rect.xmax(), rect.ymax());
+        }
+
+        return new RectHV(rect.xmin(), pivot.y(), rect.xmax(), rect.ymax());
+    }
+
+    private void nearest(Node node, Point2D point, boolean isVertical) {
+        double dst = node.point.distanceSquaredTo(point);
+        if (dst < minDst) {
+            minDst = dst;
+            nearestPoint = node.point;
+        }
+
+        if (node.left != null && node.right != null) {
+            if (compare(point, node.point, isVertical) < 0) {
+                if (node.left.rect.distanceSquaredTo(point) < minDst) {
+                    nearest(node.left, point, !isVertical);
+                }
+                if (node.right.rect.distanceSquaredTo(point) < minDst) {
+                    nearest(node.right, point, !isVertical);
+                }
+            } else {
+                if (node.right.rect.distanceSquaredTo(point) < minDst) {
+                    nearest(node.right, point, !isVertical);
+                }
+                if (node.left.rect.distanceSquaredTo(point) < minDst) {
+                    nearest(node.left, point, !isVertical);
+                }
+            }
         } else {
-            range(node.left, !isVertical, rect, result);
-            range(node.right, !isVertical, rect, result);
+            if (node.left != null && node.left.rect.distanceSquaredTo(point) < minDst) {
+                nearest(node.left, point, !isVertical);
+            }
+            if (node.right != null && node.right.rect.distanceSquaredTo(point) < minDst) {
+                nearest(node.right, point, !isVertical);
+            }
         }
     }
 
@@ -95,6 +146,7 @@ public class KdTree {
     public void insert(Point2D p) {
         if (root == null) {
             root = new Node(p, new RectHV(0.0, 0.0, 1.0, 1.0));
+            size++;
         } else {
             Node current = root;
             boolean isVertical = true;
@@ -103,30 +155,21 @@ public class KdTree {
                 int cmp = compare(p, current.point, isVertical);
                 if (cmp < 0) {
                     if (current.left == null) {
-                        RectHV rect;
-                        if (isVertical) {
-                            rect = new RectHV(current.rect.xmin(), current.rect.ymin(), current.point.x(), current.rect.ymax());
-                        }
-                        else {
-                            rect = new RectHV(current.rect.xmin(), current.rect.ymin(), current.rect.xmax(), current.point.y());
-                        }
-                        current.left = new Node(p, rect);
+                        current.left = new Node(p, makeLeftSubRect(current, isVertical));
+                        size++;
                         break;
                     }
 
                     current = current.left;
                 }
                 else {
-                    if (current.right == null) {
-                        RectHV rect;
-                        if (isVertical) {
-                            rect = new RectHV(current.point.x(), current.rect.ymin(), current.rect.xmax(), current.rect.ymax());
-                        }
-                        else {
-                            rect = new RectHV(current.rect.xmin(), current.point.y(), current.rect.xmax(), current.rect.ymax());
-                        }
+                    if (current.point.equals(p)) {
+                        return;
+                    }
 
-                        current.right = new Node(p, rect);
+                    if (current.right == null) {
+                        current.right = new Node(p, makeRightSubRect(current, isVertical));
+                        size++;
                         break;
                     }
 
@@ -136,8 +179,6 @@ public class KdTree {
                 isVertical = !isVertical;
             }
         }
-
-        size++;
     }
 
     public boolean contains(Point2D p) {
@@ -156,7 +197,11 @@ public class KdTree {
             else if (cmp > 0) {
                 current = current.right;
             } else {
-                return true;
+                if (current.point.equals(p)) {
+                    return true;
+                }
+
+                current = current.right;
             }
 
             isVertical = !isVertical;
@@ -176,7 +221,7 @@ public class KdTree {
 
         List<Point2D> result = new LinkedList<>();
 
-        range(root, true, rect, result);
+        range(root, rect, result);
 
         return result;
     }
@@ -187,33 +232,14 @@ public class KdTree {
         }
 
         if (root == null) {
-            throw new java.lang.IllegalArgumentException("Root is null.");
+            return null;
         }
 
-        Node current = root;
-        Point2D result = root.point;
-        double minDst = Double.MAX_VALUE;
-        boolean isVertical = true;
+        nearestPoint = root.point;
+        minDst = p.distanceSquaredTo(root.point);
+        nearest(root, p, true);
 
-        while (current != null) {
-            double dst = current.point.distanceSquaredTo(p);
-            if (dst < minDst) {
-                minDst = dst;
-                result = current.point;
-            }
-
-            int cmp = compare(p, current.point, isVertical);
-            if (cmp < 0) {
-                current = current.left;
-            }
-            else {
-                current = current.right;
-            }
-
-            isVertical = !isVertical;
-        }
-
-        return result;
+        return nearestPoint;
     }
 
     public static void main(String[] args) {

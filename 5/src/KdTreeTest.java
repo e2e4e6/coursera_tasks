@@ -71,6 +71,18 @@ public class KdTreeTest {
     }
 
     @Test
+    public void Should_return_nearest_point_test5() {
+        KdTree target = new KdTree();
+
+        target.insert(new Point2D(0.7, 0.2));
+        target.insert(new Point2D(0.5, 0.4));
+        target.insert(new Point2D(0.2, 0.3));
+        target.insert(new Point2D(0.4, 0.7));
+        target.insert(new Point2D(0.9, 0.6));
+        assertEquals(new Point2D(0.2, 0.3), target.nearest(new Point2D(0.004, 0.44)));
+    }
+
+    @Test
     public void Should_return_points_in_rectangle() {
         KdTree target = new KdTree();
 

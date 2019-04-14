@@ -28,7 +28,7 @@ public class WordNet {
         digraph = new Digraph(synsetById.length);
         readHypernyms(hypernyms, digraph);
 
-        if (!doesRootExist()) {
+        if (!doesOnlyOneRootExist()) {
             throw new IllegalArgumentException("Root element does not exist.");
         }
 
@@ -122,7 +122,7 @@ public class WordNet {
         }
     }
 
-    private boolean doesRootExist() {
+    private boolean doesOnlyOneRootExist() {
         int rootCount = 0;
         for (int v = 0; v < digraph.V(); ++v) {
             if (digraph.outdegree(v) == 0) {
@@ -130,7 +130,7 @@ public class WordNet {
             }
         }
 
-        return rootCount != 0;
+        return rootCount == 1;
     }
 
     // do unit testing of this class

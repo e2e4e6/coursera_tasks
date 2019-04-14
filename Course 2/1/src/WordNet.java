@@ -7,10 +7,10 @@ import java.util.ArrayList;
 import java.util.TreeMap;
 
 public class WordNet {
-    private Digraph digraph;
-    private TreeMap<String, Bag<Integer>> synsetIdByNoun;
-    private String[] synsetById;
-    private SAP sap;
+    private final Digraph digraph;
+    private final TreeMap<String, Bag<Integer>> synsetIdByNoun;
+    private final String[] synsetById;
+    private final SAP sap;
 
     // constructor takes the name of the two input files
     public WordNet(String synsets, String hypernyms) {
@@ -122,7 +122,7 @@ public class WordNet {
         }
     }
 
-    boolean doesRootExist() {
+    private boolean doesRootExist() {
         int rootCount = 0;
         for (int v = 0; v < digraph.V(); ++v) {
             if (digraph.outdegree(v) == 0) {

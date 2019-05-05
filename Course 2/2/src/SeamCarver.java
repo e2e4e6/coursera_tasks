@@ -3,7 +3,6 @@ import edu.princeton.cs.algs4.DirectedEdge;
 import edu.princeton.cs.algs4.EdgeWeightedDigraph;
 import edu.princeton.cs.algs4.Picture;
 
-import java.awt.*;
 
 public class SeamCarver {
     private int data[][];
@@ -68,18 +67,18 @@ public class SeamCarver {
             return 1000.0;
         }
 
-        Color left  = new Color(data[x - 1][y]);
-        Color right = new Color(data[x + 1][y]);
-        Color up    = new Color(data[x][y - 1]);
-        Color down  = new Color(data[x][y + 1]);
+        int left  = data[x - 1][y];
+        int right = data[x + 1][y];
+        int up    = data[x][y - 1];
+        int down  = data[x][y + 1];
 
-        double delta_x = Math.pow(right.getRed() - left.getRed(), 2) +
-                Math.pow(right.getGreen() - left.getGreen(), 2) +
-                Math.pow(right.getBlue() - left.getBlue(), 2);
+        double delta_x = Math.pow(getRed(right) - getRed(left), 2) +
+                Math.pow(getGreen(right) - getGreen(left), 2) +
+                Math.pow(getBlue(right) - getBlue(left), 2);
 
-        double delta_y = Math.pow(down.getRed() - up.getRed(), 2) +
-                Math.pow(down.getGreen() - up.getGreen(), 2) +
-                Math.pow(down.getBlue() - up.getBlue(), 2);
+        double delta_y = Math.pow(getRed(down) - getRed(up), 2) +
+                Math.pow(getGreen(down) - getGreen(up), 2) +
+                Math.pow(getBlue(down) - getBlue(up), 2);
 
         return Math.sqrt(delta_x + delta_y);
     }
@@ -170,7 +169,11 @@ public class SeamCarver {
 
     // remove horizontal seam from current picture
     public void removeHorizontalSeam(int[] seam) {
-        validateSeam(seam, width());
+        validateSeam(seam, width(), height());
+
+        if (height() == 1) {
+            throw new IllegalArgumentException("picture height is 1");
+        }
 
         for (int x = 0; x < width(); x++) {
             for (int y = seam[x]; y < height() - 1; y++) {
@@ -183,7 +186,11 @@ public class SeamCarver {
 
     // remove vertical seam from current picture
     public void removeVerticalSeam(int[] seam) {
-        validateSeam(seam, height());
+        validateSeam(seam, height(), width());
+
+        if (width() == 1) {
+            throw new IllegalArgumentException("picture width is 1");
+        }
 
         for (int y = 0; y < height(); y++) {
             for (int x = seam[y]; x < width() - 1; x++) {
@@ -192,6 +199,18 @@ public class SeamCarver {
         }
 
         width = width - 1;
+    }
+
+    static private int getRed(int rgb) {
+        return (rgb >> 16) & 0xFF;
+    }
+
+    static private int getGreen(int rgb) {
+        return (rgb >> 8) & 0xFF;
+    }
+
+    static private int getBlue(int rgb) {
+        return (rgb) & 0xFF;
     }
 
     private int beginVertex() {
@@ -214,17 +233,23 @@ public class SeamCarver {
         return (vertex - x) / width();
     }
 
-    static private void validateSeam(int[] seam, int currentLength) {
+    static private void validateSeam(int[] seam, int expectedLength, int upperBound) {
         if (seam == null) {
             throw new IllegalArgumentException("seam == null");
         }
 
-        if (currentLength == 1) {
-            throw new IllegalArgumentException("picture size is 1");
+        if (seam.length != expectedLength) {
+            throw new IllegalArgumentException("seam.length is incorrect");
         }
 
-        if (seam.length != currentLength) {
-            throw new IllegalArgumentException("seam.length is incorrect");
+        for (int i = 0; i < seam.length; i++) {
+            if (seam[i] < 0) {
+                throw new IllegalArgumentException("seam item is negative");
+            }
+
+            if (seam[i] >= upperBound) {
+                throw new IllegalArgumentException("seam item is higher than upper bound");
+            }
         }
 
         for (int i = 1; i < seam.length; i++) {

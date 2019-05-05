@@ -1,14 +1,12 @@
-import edu.princeton.cs.algs4.DijkstraSP;
-import edu.princeton.cs.algs4.DirectedEdge;
-import edu.princeton.cs.algs4.EdgeWeightedDigraph;
 import edu.princeton.cs.algs4.Picture;
+import edu.princeton.cs.algs4.IndexMinPQ;
+import edu.princeton.cs.algs4.Stack;
 
 
 public class SeamCarver {
     private int data[][];
     private int width;
     private int height;
-
 
     // create a seam carver object based on the given picture
     public SeamCarver(Picture picture) {
@@ -85,40 +83,12 @@ public class SeamCarver {
 
     // sequence of indices for horizontal seam
     public int[] findHorizontalSeam() {
-        EdgeWeightedDigraph graph = new EdgeWeightedDigraph(width() * height() + 2);
-
-        for (int y = 0; y < height(); y++) {
-            graph.addEdge(new DirectedEdge(beginVertex(), vertex(0, y), energy(0, y)));
-        }
-
-        for (int x = 0; x < width() - 1; x++) {
-            for (int y = 0; y < height(); y++) {
-                if (y != 0) {
-                    graph.addEdge(new DirectedEdge(vertex(x, y), vertex(x + 1, y - 1), energy(x + 1, y - 1)));
-                }
-
-                graph.addEdge(new DirectedEdge(vertex(x, y), vertex(x + 1, y), energy(x + 1, y)));
-
-                if (y != height() - 1) {
-                    graph.addEdge(new DirectedEdge(vertex(x, y), vertex(x + 1, y + 1), energy(x + 1, y + 1)));
-                }
-            }
-        }
-
-        for (int y = 0; y < height(); y++) {
-            graph.addEdge(new DirectedEdge(vertex(width() - 1, y), endVertex(), 0.0));
-        }
-
         int[] path = new int[width()];
         int i = 0;
 
-        DijkstraSP shortPath = new DijkstraSP(graph, beginVertex());
-        for (DirectedEdge edge : shortPath.pathTo(endVertex())) {
-            if (edge.from() == beginVertex()) {
-                continue;
-            }
-
-            path[i] = getY(edge.from(), i);
+        SeamFinder pathFinder = new SeamFinder(false);
+        for (Integer v : pathFinder.pathTo()) {
+            path[i] = getY(v);
             i++;
         }
 
@@ -127,40 +97,12 @@ public class SeamCarver {
 
     // sequence of indices for vertical seam
     public int[] findVerticalSeam() {
-        EdgeWeightedDigraph graph = new EdgeWeightedDigraph(width() * height() + 2);
-
-        for (int x = 0; x < width(); x++) {
-            graph.addEdge(new DirectedEdge(beginVertex(), vertex(x, 0), energy(x, 0)));
-        }
-
-        for (int y = 0; y < height() - 1; y++) {
-            for (int x = 0; x < width(); x++) {
-                if (x != 0) {
-                    graph.addEdge(new DirectedEdge(vertex(x, y), vertex(x - 1, y + 1), energy(x - 1, y + 1)));
-                }
-
-                graph.addEdge(new DirectedEdge(vertex(x, y), vertex(x, y + 1), energy(x, y + 1)));
-
-                if (x != width() - 1) {
-                    graph.addEdge(new DirectedEdge(vertex(x, y), vertex(x + 1, y + 1), energy(x + 1, y + 1)));
-                }
-            }
-        }
-
-        for (int x = 0; x < width(); x++) {
-            graph.addEdge(new DirectedEdge(vertex(x, height() - 1), endVertex(), 0.0));
-        }
-
         int[] path = new int[height()];
         int i = 0;
 
-        DijkstraSP shortPath = new DijkstraSP(graph, beginVertex());
-        for (DirectedEdge edge : shortPath.pathTo(endVertex())) {
-            if (edge.from() == beginVertex()) {
-                continue;
-            }
-
-            path[i] = getX(edge.from(), i);
+        SeamFinder pathFinder = new SeamFinder(true);
+        for (Integer v : pathFinder.pathTo()) {
+            path[i] = getX(v);
             i++;
         }
 
@@ -225,12 +167,12 @@ public class SeamCarver {
         return y * width() + x;
     }
 
-    private int getX(int vertex, int y) {
-        return vertex - y * width();
+    private int getX(int vertex) {
+        return vertex % width();
     }
 
-    private int getY(int vertex, int x) {
-        return (vertex - x) / width();
+    private int getY(int vertex) {
+        return (vertex - getX(vertex)) / width();
     }
 
     static private void validateSeam(int[] seam, int expectedLength, int upperBound) {
@@ -256,6 +198,102 @@ public class SeamCarver {
             if (Math.abs(seam[i - 1] - seam[i]) > 1) {
                 throw new IllegalArgumentException("seam is incorrect");
             }
+        }
+    }
+
+    private class SeamFinder {
+        private double[] distTo;
+        private int[] edgeTo;
+        private IndexMinPQ<Double> pq;
+
+        public SeamFinder(boolean isVertical) {
+            int vertexCount = height() * width() + 2;
+            distTo = new double[vertexCount];
+            edgeTo = new int[vertexCount];
+
+            for (int v = 0; v < vertexCount; v++)
+                distTo[v] = Double.POSITIVE_INFINITY;
+            distTo[beginVertex()] = 0.0;
+
+            // relax vertices in order of distance from s
+            pq = new IndexMinPQ<>(vertexCount);
+            pq.insert(beginVertex(), distTo[beginVertex()]);
+            while (!pq.isEmpty()) {
+                int v = pq.delMin();
+
+                if (v == endVertex()) {
+                    continue;
+                }
+
+                if (v == beginVertex()) {
+                    if (isVertical) {
+                        for (int x = 0; x < width(); x++) {
+                            relax(beginVertex(), vertex(x, 0), energy(x, 0));
+                        }
+                    } else {
+                        for (int y = 0; y < height(); y++) {
+                            relax(beginVertex(), vertex(0, y), energy(0, y));
+                        }
+                    }
+                } else {
+                    int x = getX(v);
+                    int y = getY(v);
+
+                    if (isVertical) {
+                        if (y == height() - 1) {
+                            relax(vertex(x, height() - 1), endVertex(), 0.0);
+                        } else {
+                            if (x != 0) {
+                                relax(vertex(x, y), vertex(x - 1, y + 1), energy(x - 1, y + 1));
+                            }
+
+                            relax(vertex(x, y), vertex(x, y + 1), energy(x, y + 1));
+
+                            if (x != width() - 1) {
+                                relax(vertex(x, y), vertex(x + 1, y + 1), energy(x + 1, y + 1));
+                            }
+                        }
+                    } else {
+                        if (x == width() - 1) {
+                            relax(vertex(width() - 1, y), endVertex(), 0.0);
+                        } else {
+                            if (y != 0) {
+                                relax(vertex(x, y), vertex(x + 1, y - 1), energy(x + 1, y - 1));
+                            }
+
+                            relax(vertex(x, y), vertex(x + 1, y), energy(x + 1, y));
+
+                            if (y != height() - 1) {
+                                relax(vertex(x, y), vertex(x + 1, y + 1), energy(x + 1, y + 1));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // relax edge e and update pq if changed
+        private void relax(int v, int w, double weight) {
+            if (distTo[w] > distTo[v] + weight) {
+                distTo[w] = distTo[v] + weight;
+                edgeTo[w] = v;
+                if (pq.contains(w)) pq.decreaseKey(w, distTo[w]);
+                else                pq.insert(w, distTo[w]);
+            }
+        }
+
+        public Iterable<Integer> pathTo() {
+            Stack<Integer> path = new Stack<>();
+
+            for (int w = edgeTo[endVertex()]; w != beginVertex(); w = edgeTo[w]) {
+                if (w == beginVertex() || w == endVertex()) {
+                    continue;
+                }
+
+                path.push(w);
+            }
+
+            return path;
         }
     }
 }

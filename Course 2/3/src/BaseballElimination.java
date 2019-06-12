@@ -1,6 +1,6 @@
-import edu.princeton.cs.algs4.In;
-import edu.princeton.cs.algs4.StdOut;
+import edu.princeton.cs.algs4.*;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 public class BaseballElimination {
@@ -18,6 +18,24 @@ public class BaseballElimination {
         }
 
         throw new IllegalArgumentException("Unknown team.");
+    }
+
+    private String getTeamNameBy(int index) {
+        return teamNames[index];
+    }
+
+    private int gameCount() {
+        int result = 0;
+        for (int i = teamNames.length - 2; i >= 0; i--)
+        {
+            result = result + i;
+        }
+
+        return result;
+    }
+
+    private int teamIndex(int team) {
+        return team;
     }
 
     // create a baseball division from given filename in format specified below
@@ -75,12 +93,80 @@ public class BaseballElimination {
 
     // is given team eliminated?
     public boolean isEliminated(String team) {
-        return false;
+        return certificateOfElimination(team) != null;
     }
 
     // subset R of teams that eliminates given team; null if not eliminated
     public Iterable<String> certificateOfElimination(String team) {
-        return null;
+        int targetTeam = getTeamIndexBy(team);
+
+        // trivial
+        ArrayList<String> result = new ArrayList<>();
+        for (int i = 0; i < teamNames.length; i++) {
+            if (w[targetTeam] + r[targetTeam] < w[i]) {
+                result.add(getTeamNameBy(i));
+            }
+        }
+
+        if (!result.isEmpty()) {
+            return result;
+        }
+
+        FlowNetwork G = new FlowNetwork(2 + teamNames.length + gameCount());
+
+        int gameIt = 0;
+        FlowEdge[] gameEdges = new FlowEdge[gameCount()];
+
+        // add s -> game
+        int s = G.V() - 1;
+        int t = G.V() - 2;
+        for (int i = 0; i < teamNames.length; i++) {
+            if (i == targetTeam) {
+                continue;
+            }
+
+            for (int j = i + 1; j < teamNames.length; j++) {
+                if (j == targetTeam) {
+                    continue;
+                }
+
+                int gameIndex = gameIt + teamNames.length;
+                gameEdges[gameIt] = new FlowEdge(s, gameIndex, g[i][j]);
+                G.addEdge(gameEdges[gameIt]);
+                G.addEdge(new FlowEdge(gameIndex, teamIndex(i), Double.POSITIVE_INFINITY));
+                G.addEdge(new FlowEdge(gameIndex, teamIndex(j), Double.POSITIVE_INFINITY));
+
+                gameIt++;
+            }
+
+            G.addEdge(new FlowEdge(teamIndex(i), t, w[targetTeam] + r[targetTeam] - w[i]));
+        }
+
+        boolean isEliminated = false;
+        FordFulkerson ff = new FordFulkerson(G, s, t);
+        for (FlowEdge e : gameEdges) {
+            if (e.capacity() != e.flow()) {
+                isEliminated = true;
+            }
+        }
+
+        if (isEliminated) {
+            for (int i = 0; i < teamNames.length; i++) {
+                if (i == targetTeam) {
+                    continue;
+                }
+
+                if (ff.inCut(i)) {
+                    result.add(getTeamNameBy(i));
+                }
+            }
+        }
+
+        if (!isEliminated) {
+            return null;
+        }
+
+        return result;
     }
 
     public static void main(String[] args) {
